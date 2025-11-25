@@ -1,0 +1,12 @@
+{
+    "workspaces": [
+        "packages/*",
+        "apps/*"
+    ],
+    "devDependencies": {
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "o1js": "^2.11.0"
+    }
+}
