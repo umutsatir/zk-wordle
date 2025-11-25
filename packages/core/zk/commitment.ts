@@ -1,7 +1,8 @@
 import { Field, Poseidon } from "o1js";
 import { Commitment } from "./types";
+import { wordToFields } from "./utils";
 
-export function createCommitment(word: string): Commitment {
+function createCommitment(word: string): Commitment {
     const salt = createSalt();
     const commitment = computeCommitment(wordToFields(word), salt);
     return { commitment, salt };
@@ -9,10 +10,6 @@ export function createCommitment(word: string): Commitment {
 
 function computeCommitment(letters: Field[], salt: Field): Field {
     return Poseidon.hash(letters.concat(salt));
-}
-
-function wordToFields(word: string): Field[] {
-    return word.split("").map((letter) => Field(BigInt(letter.charCodeAt(0))));
 }
 
 function verifyCommitment(
@@ -26,3 +23,5 @@ function verifyCommitment(
 function createSalt(): Field {
     return Field.random(); // TODO: use a secure random number generator
 }
+
+export { createCommitment, verifyCommitment };
