@@ -1,10 +1,8 @@
 import { Field, Poseidon } from 'o1js';
 import { Commitment } from './types.js';
-import { wordToFields } from './utils.js';
 
-function createCommitment(word: string): Commitment {
-  const salt = createSalt();
-  const commitment = computeCommitment(wordToFields(word), salt);
+function createCommitment(word: Field[], salt: Field): Commitment {
+  const commitment = computeCommitment(word, salt);
   return { commitment, salt };
 }
 
@@ -18,10 +16,6 @@ function verifyCommitment(
   commitment: Field
 ): boolean {
   return computeCommitment(letters, salt) === commitment;
-}
-
-function createSalt(): Field {
-  return Field.random(); // TODO: use a secure random number generator
 }
 
 export { createCommitment, verifyCommitment };

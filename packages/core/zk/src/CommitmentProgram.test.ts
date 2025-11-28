@@ -1,43 +1,50 @@
 import { Field } from 'o1js';
-import { CommitmentProgram } from './CommitmentProgram.js';
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert';
+
+import { CommitmentProgram } from './CommitmentProgram.js';
+import { createCommitment } from './functions/commitment.js';
+import { wordToFields } from './functions/utils.js';
 
 describe('CommitmentProgram', () => {
   before(async () => {
     await CommitmentProgram.compile();
   });
 
-  it('computes feedback correctly for a known case', async () => {
-    const guessWord = [
-      Field('h'.charCodeAt(0)),
-      Field('e'.charCodeAt(0)),
-      Field('l'.charCodeAt(0)),
-      Field('l'.charCodeAt(0)),
-      Field('o'.charCodeAt(0)),
-    ];
+  it('matches helper commitment computation', async () => {
+    const word = wordToFields('hello');
+    const salt = Field(123n);
 
-    const actualWord = [
-      Field('h'.charCodeAt(0)),
-      Field('e'.charCodeAt(0)),
-      Field('l'.charCodeAt(0)),
-      Field('l'.charCodeAt(0)),
-      Field('o'.charCodeAt(0)),
-    ];
+    const expected = createCommitment(word, salt).commitment;
+    const { proof } = await CommitmentProgram.createCommitment({
+      word,
+      salt,
+    });
 
-    const commitment = Field(0);
-    const salt = Field(0);
-
-    const result = await CommitmentProgram.computeFeedback(
-      { guessWord, commitment },
-      { actualWord, salt }
+    assert.strictEqual(
+      proof.publicOutput.commitment.toString(),
+      expected.toString()
     );
+  });
 
-    const feedback = result.proof.publicOutput.feedback;
-    console.log(result.proof);
+  it('produces different commitments for different salts', async () => {
+    const word = wordToFields('hello');
+    const saltA = Field(1n);
+    const saltB = Field(2n);
 
-    for (let i = 0; i < 5; i++) {
-      assert.strictEqual(feedback[i].toBigInt(), BigInt(2));
-    }
+    const { proof: proofA } = await CommitmentProgram.createCommitment({
+      word,
+      salt: saltA,
+    });
+
+    const { proof: proofB } = await CommitmentProgram.createCommitment({
+      word,
+      salt: saltB,
+    });
+
+    assert.notStrictEqual(
+      proofA.publicOutput.commitment.toString(),
+      proofB.publicOutput.commitment.toString()
+    );
   });
 });

@@ -34,17 +34,6 @@ const FeedbackProgram = ZkProgram({
         };
       },
     },
-    verifyFeedback: {
-      privateInputs: [],
-      async method(proof: SelfProof<publicInputs, publicOutputs>) {
-        const result = proof.verify();
-        return {
-          publicOutput: {
-            feedback: Field(0),
-          },
-        };
-      },
-    },
   },
 });
 
