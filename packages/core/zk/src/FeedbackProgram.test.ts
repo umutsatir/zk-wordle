@@ -25,14 +25,17 @@ async function createCommitment(word: string, saltValue = 7n) {
     wordFields,
     salt,
     commitment: proof.publicOutput.commitment,
+    commitmentProof: proof,
   };
 }
 
-async function dummyPreviousProof(commitment: Field) {
+async function genesisPreviousProof(commitment: Field) {
   const placeholderGuess = wordToFields('aaaaa');
+  const step = Field(0);
+
   return FeedbackProgram.Proof.dummy(
-    { guessWord: placeholderGuess, commitment },
-    { feedback: grayFeedback() },
+    { guessWord: placeholderGuess, commitment, step },
+    { feedback: grayFeedback(), commitment },
     1
   );
 }
@@ -44,13 +47,16 @@ describe('FeedbackProgram', () => {
   });
 
   it('returns all green feedback when guess matches actual word', async () => {
-    const { commitment, wordFields, salt } = await createCommitment('hello');
-    const previousProof = await dummyPreviousProof(commitment);
+    const { commitment, wordFields, salt, commitmentProof } =
+      await createCommitment('hello');
+    const previousProof = await genesisPreviousProof(commitment);
     const guessWord = wordToFields('hello');
 
     const { proof } = await FeedbackProgram.computeFeedback(
-      { guessWord, commitment },
-      { previousProof, actualWord: wordFields, salt }
+      { guessWord, commitment, step: Field(0) },
+      previousProof,
+      commitmentProof,
+      { actualWord: wordFields, salt }
     );
 
     const feedback = toBigIntArray(proof.publicOutput.feedback);
@@ -58,13 +64,16 @@ describe('FeedbackProgram', () => {
   });
 
   it('chains proofs so each guess references the prior response', async () => {
-    const { commitment, wordFields, salt } = await createCommitment('hello');
-    const genesisProof = await dummyPreviousProof(commitment);
+    const { commitment, wordFields, salt, commitmentProof } =
+      await createCommitment('hello');
+    const genesisProof = await genesisPreviousProof(commitment);
 
     const guessOne = wordToFields('hills');
     const { proof: firstProof } = await FeedbackProgram.computeFeedback(
-      { guessWord: guessOne, commitment },
-      { previousProof: genesisProof, actualWord: wordFields, salt }
+      { guessWord: guessOne, commitment, step: Field(0) },
+      genesisProof,
+      commitmentProof,
+      { actualWord: wordFields, salt }
     );
 
     const feedbackOne = toBigIntArray(firstProof.publicOutput.feedback);
@@ -81,8 +90,10 @@ describe('FeedbackProgram', () => {
 
     const guessTwo = wordToFields('cello');
     const { proof: secondProof } = await FeedbackProgram.computeFeedback(
-      { guessWord: guessTwo, commitment },
-      { previousProof: firstProof, actualWord: wordFields, salt }
+      { guessWord: guessTwo, commitment, step: Field(1) },
+      firstProof,
+      commitmentProof,
+      { actualWord: wordFields, salt }
     );
 
     const feedbackTwo = toBigIntArray(secondProof.publicOutput.feedback);
@@ -103,14 +114,21 @@ describe('FeedbackProgram', () => {
       commitment: commitmentA,
       wordFields,
       salt,
+      commitmentProof,
     } = await createCommitment('hello', 11n);
     const { commitment: commitmentB } = await createCommitment('cigar', 13n);
-    const previousProof = await dummyPreviousProof(commitmentA);
+    const previousProof = await genesisPreviousProof(commitmentA);
 
     await assert.rejects(
       FeedbackProgram.computeFeedback(
-        { guessWord: wordToFields('cigar'), commitment: commitmentB },
-        { previousProof, actualWord: wordFields, salt }
+        {
+          guessWord: wordToFields('cigar'),
+          commitment: commitmentB,
+          step: Field(1),
+        },
+        previousProof,
+        commitmentProof,
+        { actualWord: wordFields, salt }
       )
     );
   });

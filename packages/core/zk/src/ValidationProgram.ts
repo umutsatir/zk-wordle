@@ -1,10 +1,33 @@
 import { Field, MerkleTree, Poseidon, Provable, Struct, ZkProgram } from 'o1js';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// TODO: Load from file
-const MERKLE_ROOT = Field(
-  '11393797897944516075956890799181412499514568812700348680637030886791521329896'
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+type RootFile = {
+  root: string;
+  count: number;
+  height: number;
+};
+
+const rootConfigPath = path.resolve(
+  __dirname, // build/src
+  '..', // build
+  '..', // package root
+  'src',
+  'word-validation',
+  'data',
+  'words.root.json'
 );
-const MERKLE_HEIGHT = 15;
+
+const rootConfig: RootFile = JSON.parse(
+  fs.readFileSync(rootConfigPath, 'utf8')
+);
+
+const MERKLE_ROOT = Field(rootConfig.root);
+const MERKLE_HEIGHT = rootConfig.height - 1;
 
 class publicInputs extends Struct({
   word: Provable.Array(Field, 5),

@@ -51,7 +51,7 @@ function main() {
     const witness = tree.getWitness(BigInt(i));
     witnesses[word] = {
       index: i,
-      witness: witness.map((field) => field.toString()),
+      witness: witness.map(({ sibling }) => sibling.toString()),
     };
   }
 
