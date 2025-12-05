@@ -23,9 +23,40 @@ const FeedbackProgram = ZkProgram({
   publicInput: publicInputs,
   publicOutput: publicOutputs,
   methods: {
+    // First step: only uses commitmentProof, no previousProof
+    computeFirstFeedback: {
+      privateInputs: [CommitmentProgram.Proof, privateInputs],
+      async method(
+        publicInput: publicInputs,
+        commitmentProof: Proof<unknown, { commitment: Field }>,
+        privateInput: privateInputs
+      ) {
+        // Ensure this is step 0
+        publicInput.step.assertEquals(Field(0), 'First step must be step 0');
+
+        commitmentProof.verify();
+
+        // Use commitment from CommitmentProgram proof
+        commitmentProof.publicOutput.commitment.assertEquals(
+          publicInput.commitment,
+          'Commitment mismatch'
+        );
+
+        const feedback = computeFeedbackFields(
+          privateInput.actualWord,
+          publicInput.guessWord
+        );
+
+        return {
+          publicOutput: {
+            feedback: feedback,
+            commitment: publicInput.commitment,
+          },
+        };
+      },
+    },
+    // Subsequent steps: uses previousProof for recursive chain
     computeFeedback: {
-      // previousProof: recursive FeedbackProgram proof
-      // commitmentProof: CommitmentProgram proof binding the commitment
       privateInputs: [
         SelfProof<publicInputs, publicOutputs>,
         CommitmentProgram.Proof,
@@ -37,27 +68,33 @@ const FeedbackProgram = ZkProgram({
         commitmentProof: Proof<unknown, { commitment: Field }>,
         privateInput: privateInputs
       ) {
+        // Ensure this is not step 0
+        publicInput.step.assertGreaterThan(Field(0), 'Must not be first step');
+
         previousProof.verify();
         commitmentProof.verify();
 
-        const isFirstStep = publicInput.step.equals(Field(0));
-
-        const chainedCommitment = Provable.if(
-          isFirstStep,
-          commitmentProof.publicOutput.commitment,
-          previousProof.publicInput.commitment
+        // Chain commitment from previous proof
+        previousProof.publicInput.commitment.assertEquals(
+          publicInput.commitment,
+          'Commitment mismatch in recursive chain'
         );
 
-        chainedCommitment.assertEquals(publicInput.commitment);
+        // Verify commitmentProof matches (for consistency)
+        commitmentProof.publicOutput.commitment.assertEquals(
+          publicInput.commitment,
+          'CommitmentProof commitment mismatch'
+        );
 
         const feedback = computeFeedbackFields(
           privateInput.actualWord,
           publicInput.guessWord
         );
+
         return {
           publicOutput: {
             feedback: feedback,
-            commitment: chainedCommitment,
+            commitment: publicInput.commitment,
           },
         };
       },

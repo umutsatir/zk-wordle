@@ -29,17 +29,6 @@ async function createCommitment(word: string, saltValue = 7n) {
   };
 }
 
-async function genesisPreviousProof(commitment: Field) {
-  const placeholderGuess = wordToFields('aaaaa');
-  const step = Field(0);
-
-  return FeedbackProgram.Proof.dummy(
-    { guessWord: placeholderGuess, commitment, step },
-    { feedback: grayFeedback(), commitment },
-    1
-  );
-}
-
 describe('FeedbackProgram', () => {
   before(async () => {
     await CommitmentProgram.compile();
@@ -49,12 +38,10 @@ describe('FeedbackProgram', () => {
   it('returns all green feedback when guess matches actual word', async () => {
     const { commitment, wordFields, salt, commitmentProof } =
       await createCommitment('hello');
-    const previousProof = await genesisPreviousProof(commitment);
     const guessWord = wordToFields('hello');
 
-    const { proof } = await FeedbackProgram.computeFeedback(
+    const { proof } = await FeedbackProgram.computeFirstFeedback(
       { guessWord, commitment, step: Field(0) },
-      previousProof,
       commitmentProof,
       { actualWord: wordFields, salt }
     );
@@ -66,12 +53,10 @@ describe('FeedbackProgram', () => {
   it('chains proofs so each guess references the prior response', async () => {
     const { commitment, wordFields, salt, commitmentProof } =
       await createCommitment('hello');
-    const genesisProof = await genesisPreviousProof(commitment);
 
     const guessOne = wordToFields('hills');
-    const { proof: firstProof } = await FeedbackProgram.computeFeedback(
+    const { proof: firstProof } = await FeedbackProgram.computeFirstFeedback(
       { guessWord: guessOne, commitment, step: Field(0) },
-      genesisProof,
       commitmentProof,
       { actualWord: wordFields, salt }
     );
@@ -114,11 +99,23 @@ describe('FeedbackProgram', () => {
       commitment: commitmentA,
       wordFields,
       salt,
-      commitmentProof,
+      commitmentProof: commitmentProofA,
     } = await createCommitment('hello', 11n);
-    const { commitment: commitmentB } = await createCommitment('cigar', 13n);
-    const previousProof = await genesisPreviousProof(commitmentA);
+    const { commitment: commitmentB, commitmentProof: commitmentProofB } =
+      await createCommitment('cigar', 13n);
 
+    // First step with commitmentA
+    const { proof: firstProof } = await FeedbackProgram.computeFirstFeedback(
+      {
+        guessWord: wordToFields('hello'),
+        commitment: commitmentA,
+        step: Field(0),
+      },
+      commitmentProofA,
+      { actualWord: wordFields, salt }
+    );
+
+    // Try to use commitmentB in second step (should fail)
     await assert.rejects(
       FeedbackProgram.computeFeedback(
         {
@@ -126,8 +123,8 @@ describe('FeedbackProgram', () => {
           commitment: commitmentB,
           step: Field(1),
         },
-        previousProof,
-        commitmentProof,
+        firstProof,
+        commitmentProofB,
         { actualWord: wordFields, salt }
       )
     );
